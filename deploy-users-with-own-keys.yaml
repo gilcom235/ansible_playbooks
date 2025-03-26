@@ -1,0 +1,15 @@
+- name: Deploy SSH Keys from CSV
+  hosts: all
+  become: yes
+  tasks:
+    - name: Read and parse the CSV file
+      set_fact:
+        users: "{{ lookup('file', 'users.csv') | split('\n') | map('split', ',') | list }}"
+
+    - name: Deploy SSH Keys
+      ansible.builtin.authorized_key:
+        user: "{{ item[0] }}"
+        state: present
+        key: "{{ item[-1] | regex_replace('\"', '') }}"
+      loop: "{{ users }}"
+      when: item[-1] | trim | length > 0

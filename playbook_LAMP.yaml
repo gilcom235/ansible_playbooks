@@ -1,0 +1,76 @@
+- name: Install Packages Playbook
+  hosts: all
+  become: yes 
+  vars:
+    packages:
+      - httpd
+      - mariadb
+      - php
+
+  tasks:
+
+    - name: Install packages using yum (CentOS/RHEL)
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages }}"
+      when: ansible_os_family == "RedHat"
+ 
+    - name: Open service in firewalld
+      firewalld:
+        service: http
+        permanent: true
+        state: enabled 
+
+    - name: Restart firewalld
+      service:
+        name: firewalld
+        state: restarted
+
+    - name: Get Apache config details
+      command: apachectl -V
+      register: apache_config_output
+      changed_when: false
+
+    - name: Extract HTTPD_ROOT and SERVER_CONFIG_FILE
+      set_fact:
+        httpd_root: "{{ apache_config_output.stdout_lines | select('search', 'HTTPD_ROOT') | map('regex_replace', '.*HTTPD_ROOT=\"(.*)\"', '\\1') | first }}"
+        server_config_file: "{{ apache_config_output.stdout_lines | select('search', 'SERVER_CONFIG_FILE') | map('regex_replace', '.*SERVER_CONFIG_FILE=\"(.*)\"', '\\1') | first }}"
+
+    - name: Construct full path of Apache config file
+      set_fact:
+        apache_config_path: "{{ httpd_root }}/{{ server_config_file }}"
+
+    - name: Modify DirectoryIndex order
+      lineinfile:
+        path: "{{ apache_config_path }}"
+        regexp: '^DirectoryIndex\s+index.html\s+index.php'
+        line: 'DirectoryIndex index.php index.html'
+        backup: yes  # Creates a backup before modifying
+
+    - name: Get Apache document root (CentOS/RHEL)
+      shell: httpd -S | grep 'DocumentRoot' | awk '{print $3}' | head -1
+      register: apache_docroot
+      when: ansible_os_family == "RedHat"
+
+    - name: Clean apache_docroot - strips leading and trailing symbols
+      set_fact:
+        apache_docroot: "{{ apache_docroot.stdout | replace('\"', '') | replace(\"'\", '') }}"
+
+    - name: Display document root
+      debug:
+        msg: "Apache DocumentRoot is: {{ apache_docroot }}"
+
+    - name: Copy index file to document root
+      copy:
+        src: ./index.php
+        dest: "{{ apache_docroot }}/index.php"
+        owner: apache
+        group: apache
+        mode: '0644'
+
+    - name: Start httpd service
+      service:
+        name: "{{ packages[0] }}" 
+        enabled: true
+        state: started 

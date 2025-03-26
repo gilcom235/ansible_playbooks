@@ -1,0 +1,21 @@
+- name: Expire users without SSH keys
+  hosts: all
+  become: yes
+  tasks:
+    - name: Read user data from CSV
+      set_fact:
+        users: "{{ lookup('file', 'users.csv') | split('\n') | map('split', ',') | map('first') | list }}"
+
+    - name: Check if users have SSH keys
+      stat:
+        path: "/home/{{ item }}/.ssh/authorized_keys"
+      register: ssh_key_check
+      loop: "{{ users }}"
+
+    - name: Expire users without SSH keys
+      user:
+        name: "{{ item.item }}"
+        password_lock: yes
+        state: present
+      when: "not item.stat.exists | default(false)"
+      loop: "{{ ssh_key_check.results }}"

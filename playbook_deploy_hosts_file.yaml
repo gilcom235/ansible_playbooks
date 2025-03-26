@@ -1,0 +1,17 @@
+- name: Deploy /etc/hosts file to managed servers
+  hosts: all 
+  become: yes
+  tasks:
+    - name: Copy local /etc/hosts to remote servers
+      copy:
+        src: /etc/hosts   # Local file path
+        dest: /etc/hosts  # Destination path on remote servers
+        owner: root
+        group: root
+        mode: 0644
+      notify: Restart network service (CentOS/RHEL)
+
+  handlers:
+    - name: Restart network service (CentOS/RHEL)
+      command: systemctl restart NetworkManager
+      when: ansible_facts['os_family'] == "RedHat"

@@ -1,0 +1,5 @@
+dbuser1,"Database user 1",DB01,1,
+dbuser2,"Database user 2",DB01,1,
+jamesbrown,"ADMINS/UNIX/ID111",ADM,0
+emiliagreen,"ADMINS/UNIX/ID222",ADM,0,"ssh-rsa ---------- worker1"
+webadmin,"Apache2 admin",ADM,1,"ssh-rsa ----------- worker1"
